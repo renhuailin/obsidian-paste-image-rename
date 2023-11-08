@@ -1,9 +1,10 @@
 import { FrontMatterCache } from 'obsidian';
 
-const dateTmplRegex = /{{DATE:([^}]+)}}/gm
+
 const frontmatterTmplRegex = /{{frontmatter:([^}]+)}}/gm
 
 const replaceDateVar = (s: string, date: moment.Moment): string => {
+	const dateTmplRegex = /{{DATE:([^}]+)}}/gm
 	const m = dateTmplRegex.exec(s)
 	if (!m) return s
 	return s.replace(m[0], date.format(m[1]))
