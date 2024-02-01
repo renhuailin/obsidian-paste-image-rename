@@ -10,29 +10,32 @@
  * - [ ] add rules for moving matched images to destination folder
  */
 import {
-  App,
-  HeadingCache,
-  MarkdownView,
-  Modal,
-  Notice,
-  Plugin,
-  PluginSettingTab,
-  Setting,
-  TAbstractFile,
-  TFile,
+	App,
+	HeadingCache,
+	MarkdownView,
+	Modal,
+	Notice,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+	TAbstractFile,
+	TFile,
 } from 'obsidian';
+
+import * as fs from 'fs';
+import * as Path from "path/posix";
 
 import { ImageBatchRenameModal } from './batch';
 import { renderTemplate } from './template';
 import {
-  createElementTree,
-  DEBUG,
-  debugLog,
-  escapeRegExp,
-  lockInputMethodComposition,
-  NameObj,
-  path,
-  sanitizer,
+	createElementTree,
+	DEBUG,
+	debugLog,
+	escapeRegExp,
+	lockInputMethodComposition,
+	NameObj,
+	path,
+	sanitizer,
 } from './utils';
 
 interface PluginSettings {
@@ -137,7 +140,7 @@ export default class PasteImageRenamePlugin extends Plugin {
 			return
 		}
 
-		const { stem, newName, isMeaningful }= this.generateNewName(file, activeFile)
+		const { stem, newName, isMeaningful } = this.generateNewName(file, activeFile)
 		debugLog('generated newName:', newName, isMeaningful)
 
 		if (!isMeaningful || !autoRename) {
@@ -149,9 +152,30 @@ export default class PasteImageRenamePlugin extends Plugin {
 
 	async renameFile(file: TFile, inputNewName: string, sourcePath: string, replaceCurrentLine?: boolean) {
 		// deduplicate name
-		const { name:newName } = await this.deduplicateNewName(inputNewName, file)
+		const { name: newName } = await this.deduplicateNewName(inputNewName, file)
 		debugLog('deduplicated newName:', newName)
 		const originName = file.name
+
+
+		// fs.rename(path.join(file.vault.adapter["basePath"], file.path), path.join(file.vault.adapter["basePath"], file.path.replaceAll(" ", "_")), (error) => {
+		// 	if (error) {
+		// 		// Show the error 
+		// 		console.log(error);
+		// 	} else {
+		// 		// List all the filenames after renaming 
+		// 		console.log("\nFile Renamed\n");
+		// 	}
+		// });
+
+
+
+		// 新 folder 的父目录不存在时，创建父目录，避免移动失败
+		// https://github.com/chenfeicqq/obsidian-attachment-manager/issues/5
+		const newFolderParentPath = Path.dirname(path.join(this.app.vault["config"].attachmentFolderPath, newName));
+		console.log(`newFolderParentPath: ${newFolderParentPath}`)
+		if (!(await this.app.vault.adapter.exists(newFolderParentPath))) {
+			await this.app.vault.createFolder(newFolderParentPath);
+		}
 
 		// generate linkText using Obsidian API, linkText is either  ![](filename.png) or ![[filename.png]] according to the "Use [[Wikilinks]]" setting.
 		const linkText = this.app.fileManager.generateMarkdownLink(file, sourcePath)
@@ -189,8 +213,8 @@ export default class PasteImageRenamePlugin extends Plugin {
 		editor.transaction({
 			changes: [
 				{
-					from: {...cursor, ch: 0},
-					to: {...cursor, ch: line.length},
+					from: { ...cursor, ch: 0 },
+					to: { ...cursor, ch: line.length },
 					text: replacedLine,
 				}
 			]
@@ -250,7 +274,7 @@ export default class PasteImageRenamePlugin extends Plugin {
 			if (!m0) return
 
 			// rename
-			const { newName, isMeaningful }= this.generateNewName(file, activeFile)
+			const { newName, isMeaningful } = this.generateNewName(file, activeFile)
 			debugLog('generated newName:', newName, isMeaningful)
 			if (!isMeaningful) {
 				new Notice('Failed to batch rename images: the generated name is not meaningful')
@@ -591,7 +615,7 @@ class SettingTab extends PluginSettingTab {
 					this.plugin.settings.imageNamePattern = value;
 					await this.plugin.saveSettings();
 				}
-			));
+				));
 
 		new Setting(containerEl)
 			.setName('Duplicate number at start (or end)')
@@ -613,7 +637,7 @@ class SettingTab extends PluginSettingTab {
 					this.plugin.settings.dupNumberDelimiter = sanitizer.delimiter(value);
 					await this.plugin.saveSettings();
 				}
-			));
+				));
 
 		new Setting(containerEl)
 			.setName('Always add duplicate number')
@@ -635,7 +659,7 @@ class SettingTab extends PluginSettingTab {
 					this.plugin.settings.autoRename = value;
 					await this.plugin.saveSettings();
 				}
-			));
+				));
 
 		new Setting(containerEl)
 			.setName('Handle all attachments')
@@ -648,7 +672,7 @@ class SettingTab extends PluginSettingTab {
 					this.plugin.settings.handleAllAttachments = value;
 					await this.plugin.saveSettings();
 				}
-			));
+				));
 
 		new Setting(containerEl)
 			.setName('Exclude extension pattern')
@@ -662,7 +686,7 @@ class SettingTab extends PluginSettingTab {
 					this.plugin.settings.excludeExtensionPattern = value;
 					await this.plugin.saveSettings();
 				}
-			));
+				));
 
 		new Setting(containerEl)
 			.setName('Disable rename notice')
@@ -674,6 +698,6 @@ class SettingTab extends PluginSettingTab {
 					this.plugin.settings.disableRenameNotice = value;
 					await this.plugin.saveSettings();
 				}
-			));
+				));
 	}
 }
